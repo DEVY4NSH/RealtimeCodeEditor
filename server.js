@@ -8,15 +8,14 @@ const ACTIONS = require('./src/actions.jsx');
 const server = http.createServer(app);
 const io = new Server(server);
 
-app.use(express.static(path.join(__dirname, 'build')));
-
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname + '/build/index.html'));
+app.use(express.static('build'));
+app.use((req, res, next) => {
+    res.sendFile(path.join(__dirname, 'build', 'index.html'));
 });
-
 
 const userSocketMap = {};
 function getAllConnectedClients(roomId) {
+    // Map
     return Array.from(io.sockets.adapter.rooms.get(roomId) || []).map(
         (socketId) => {
             return {
@@ -28,35 +27,20 @@ function getAllConnectedClients(roomId) {
 }
 
 io.on('connection', (socket) => {
-    // console.log('socket connected', socket.id);
+    console.log('socket connected', socket.id);
 
     socket.on(ACTIONS.JOIN, ({ roomId, username }) => {
-        // console.log('User joining room:', roomId, 'with username:', username);
-
-        // Check if user already exists
-        if (!userSocketMap[socket.id]) {
-            userSocketMap[socket.id] = username;
-            socket.join(roomId);
-
-            const clients = getAllConnectedClients(roomId);
-            // console.log('Clients in room:', clients);
-
-            // Notify all clients in the room about the new user
-            clients.forEach(({ socketId }) => {
-                if(socketId!==(socket.id)){
-                    io.to(socketId).emit(ACTIONS.JOINED, {
-                        clients,
-                        username,
-                        socketId: socket.id,
-                    });
-                }
+        userSocketMap[socket.id] = username;
+        socket.join(roomId);
+        const clients = getAllConnectedClients(roomId);
+        clients.forEach(({ socketId }) => {
+            io.to(socketId).emit(ACTIONS.JOINED, {
+                clients,
+                username,
+                socketId: socket.id,
             });
-            // userSocketMap[socket.id]
-        } else {
-            console.log('User already exists in map:', username);
-        }
+        });
     });
-
 
     socket.on(ACTIONS.CODE_CHANGE, ({ roomId, code }) => {
         socket.in(roomId).emit(ACTIONS.CODE_CHANGE, { code });
@@ -79,5 +63,5 @@ io.on('connection', (socket) => {
     });
 });
 
-const PORT = 10000;
+const PORT = process.env.PORT || 10000;
 server.listen(PORT, () => console.log(`Listening on port ${PORT}`));
