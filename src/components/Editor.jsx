@@ -20,28 +20,33 @@ const Editor = ({ settheme, socketRef, roomId, onCodeChange }) => {
             lineNumbers: true,
         });
 
-        editorRef.current.on('change', (instance, changes) => {
+        const handleChange = (instance, changes) => {
             const { origin } = changes;
             const code = instance.getValue();
             onCodeChange(code);
-            if (origin !== 'setValue') {
+            if (origin !== 'setValue' && socketRef.current) {
+                console.log("changes in code");
                 socketRef.current.emit(ACTIONS.CODE_CHANGE, {
                     roomId,
                     code,
                 });
             }
-        });
+        };
+
+        editorRef.current.on('change', handleChange);
 
         return () => {
             if (editorRef.current) {
+                editorRef.current.off('change', handleChange);
                 editorRef.current.toTextArea();
             }
         };
-    }, [settheme]);
+    }, [settheme, onCodeChange, roomId, socketRef]);
 
     useEffect(() => {
         const handleCodeChange = ({ code }) => {
-            if (code !== null) {
+            if (code !== null && editorRef.current) {
+                console.log("working here");
                 editorRef.current.setValue(code);
             }
         };
